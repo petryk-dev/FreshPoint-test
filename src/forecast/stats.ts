@@ -14,3 +14,11 @@ export const median = (values: readonly number[]): number => {
 
 export const mad = (values: readonly number[], center: number = median(values)): number =>
   median(values.map((x) => Math.abs(x - center)));
+
+export const mean = (values: readonly number[]): number => {
+  if (values.length === 0) {
+    throw new Error('mean: values must not be empty');
+  }
+
+  return values.reduce((sum, x) => sum + x, 0) / values.length;
+};

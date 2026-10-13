@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mad, median } from '../../src/forecast/stats.js';
+import { mad, mean, median } from '../../src/forecast/stats.js';
 
 describe('median', () => {
   it('returns the middle element for odd length', () => {
@@ -36,5 +36,15 @@ describe('mad', () => {
 
   it('throws on empty array', () => {
     expect(() => mad([])).toThrow();
+  });
+});
+
+describe('mean', () => {
+  it('returns the arithmetic mean', () => {
+    expect(mean([1, 2, 3, 4])).toBe(2.5);
+  });
+
+  it('throws on empty array', () => {
+    expect(() => mean([])).toThrow();
   });
 });
