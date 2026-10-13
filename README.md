@@ -43,10 +43,23 @@ pool all test pairs from all folds rather than averaging per-fold metrics.
 the final forecast. All methods are scored on the same folds and exclusions, and all are cleaned with
 `withCleaning`, except the last row.
 
-<!-- Paste the method comparison table from `npm run evaluate` here. -->
+Results on `data/weekly-sales.json` (144 weeks, 10 folds, Christmas and other anomalies excluded from scoring):
+
+| method                          |   WAPE |   MAPE |  MAE |  bias |
+| ------------------------------- | -----: | -----: | ---: | ----: |
+| naive                           | 17.64% | 17.21% | 2190 | -1532 |
+| movingAverage(4)                | 12.09% | 11.93% | 1500 | -1131 |
+| drift(8)                        | 24.30% | 23.69% | 3017 | -1207 |
+| Holt, default params            | 12.68% | 12.48% | 1573 | -1050 |
+| Holt, tuned params              | 11.32% | 11.58% | 1405 |  -319 |
+| Holt, tuned params, no cleaning | 12.86% | 12.96% | 1596 |  -628 |
+
+Tuned params: `alpha = 0.2, beta = 0.05, phi = 1` (2090 combinations, ~2 s).
 
 The last three rows are an ablation: Holt vs. simple baselines, tuned vs. default parameters, and the
-effect of Hampel cleaning.
+effect of Hampel cleaning. Tuned Holt is the best method, but only about 0.8 pp WAPE ahead of the 4-week
+moving average. Tuning and cleaning each improve it by about 1.4 pp. All methods have negative bias,
+i.e. they underestimate the growing series; tuning reduces this the most.
 
 ## Known limitations
 
@@ -56,6 +69,9 @@ effect of Hampel cleaning.
   The impact is negligible: these weeks are 1.5+ years before the end of the series, Holt has
   effectively forgotten them, and they fall outside every backtest window (the earliest test starts in
   June 2020). Left as is on purpose.
+
+- **CSV input** — the parser is a simple `split(',')`, so quoted values containing commas (e.g.
+  `"1,000"`) are not supported. A full RFC 4180 parser is a job for a dedicated library.
 
 ### Possible improvement
 

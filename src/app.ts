@@ -1,5 +1,5 @@
 import express from 'express';
-import { errorHandler } from './middleware/errorHandler.js';
+import { errorHandler, notFoundHandler } from './api/errorHandler.js';
 import { healthRouter } from './routes/health.js';
 
 export const createApp = () => {
@@ -9,10 +9,7 @@ export const createApp = () => {
 
   app.use('/health', healthRouter);
 
-  app.use((_req, res) => {
-    res.status(404).json({ error: 'NotFound' });
-  });
-
+  app.use(notFoundHandler);
   app.use(errorHandler);
 
   return app;
