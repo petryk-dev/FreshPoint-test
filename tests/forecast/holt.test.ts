@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { fitHolt, forecastHolt, holtStep, type HoltParams } from '../../src/forecast/holt.js';
+import {
+  fitHolt,
+  forecastHolt,
+  holtForecast,
+  holtStep,
+  type HoltParams,
+} from '../../src/forecast/holt.js';
 
 const params: HoltParams = { alpha: 0.5, beta: 0.5, phi: 1 };
 
@@ -71,5 +77,11 @@ describe('parameter validation', () => {
   it('rejects invalid phi in forecastHolt', () => {
     expect(() => forecastHolt(state, 3, 0)).toThrow('phi');
     expect(() => forecastHolt(state, 3, 1.5)).toThrow('phi');
+  });
+});
+
+describe('holtForecast', () => {
+  it('fits and forecasts in one call', () => {
+    expect(holtForecast([1, 2, 3, 4], params, 2)).toEqual([5, 6]);
   });
 });

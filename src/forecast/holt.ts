@@ -61,3 +61,9 @@ export const forecastHolt = (state: HoltState, horizon: number, phi: number): nu
 
   return forecasts;
 };
+
+export const holtForecast = (
+  history: readonly number[],
+  params: HoltParams,
+  horizon: number,
+): number[] => forecastHolt(fitHolt(history, params), horizon, params.phi);
