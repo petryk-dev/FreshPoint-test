@@ -1,4 +1,5 @@
 import { backtest, withCleaning, type BacktestOptions } from './backtest.js';
+import type { HampelOptions } from './hampel.js';
 import { holtForecast, type HoltParams } from './holt.js';
 import type { Metrics } from './metrics.js';
 
@@ -10,6 +11,8 @@ export interface HoltGrid {
 
 export interface GridSearchOptions extends BacktestOptions {
   grid?: HoltGrid;
+  /** Hampel options used to clean each fold's training data. */
+  hampelOptions?: HampelOptions;
 }
 
 export interface GridSearchResult {
@@ -46,7 +49,7 @@ export const DEFAULT_GRID: HoltGrid = {
 /** Picks Holt params with the lowest backtest WAPE. Ties keep the first combination found. */
 export const gridSearchHolt = (
   values: readonly number[],
-  { grid = DEFAULT_GRID, ...backtestOptions }: GridSearchOptions = {},
+  { grid = DEFAULT_GRID, hampelOptions, ...backtestOptions }: GridSearchOptions = {},
 ): GridSearchResult => {
   let best: { params: HoltParams; metrics: Metrics } | undefined;
   let evaluated = 0;
@@ -55,8 +58,9 @@ export const gridSearchHolt = (
     for (const beta of grid.beta) {
       for (const phi of grid.phi) {
         const params = { alpha, beta, phi };
-        const forecaster = withCleaning((history, horizon) =>
-          holtForecast(history, params, horizon),
+        const forecaster = withCleaning(
+          (history, horizon) => holtForecast(history, params, horizon),
+          hampelOptions,
         );
         const { metrics } = backtest(values, forecaster, backtestOptions);
         evaluated++;

@@ -36,3 +36,28 @@ pool all test pairs from all folds rather than averaging per-fold metrics.
   just don't penalize the model for weeks it could not be expected to predict.
 - **COVID** — needs no special handling: 12 folds of 4 weeks put the earliest test window around June 2020,
   after the initial drop.
+
+## Evaluation
+
+`npm run evaluate` prints detected anomalies, the grid search result and timing, a method comparison and
+the final forecast. All methods are scored on the same folds and exclusions, and all are cleaned with
+`withCleaning`, except the last row.
+
+<!-- Paste the method comparison table from `npm run evaluate` here. -->
+
+The last three rows are an ablation: Holt vs. simple baselines, tuned vs. default parameters, and the
+effect of Hampel cleaning.
+
+## Known limitations
+
+- **Christmas 2018 and 2019 are not flagged as anomalies.** The neighbouring holiday weeks also drop,
+  which inflates the window MAD. For example, in Christmas 2019 the window `5613, 5306, 3745, [76], 2231,
+6718, 5760` gives median 5306 and MAD 1412, so the threshold 3σ ≈ 6280 is larger than |76 − 5306| = 5230.
+  The impact is negligible: these weeks are 1.5+ years before the end of the series, Holt has
+  effectively forgotten them, and they fall outside every backtest window (the earliest test starts in
+  June 2020). Left as is on purpose.
+
+### Possible improvement
+
+Combine statistics with a calendar rule: always treat weeks spanning 24 December – 1 January as
+anomalies, in addition to the Hampel filter.
