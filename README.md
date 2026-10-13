@@ -4,9 +4,12 @@ A REST API that forecasts weekly sales 10 weeks ahead using the damped Holt meth
 with a Hampel filter, and parameters are selected automatically by a rolling-origin backtest. The
 forecasting logic is implemented from scratch, without external libraries.
 
+Runtime dependencies are only `express` (HTTP) and `zod` (input validation); filtering, forecasting,
+backtesting and metrics are hand-written.
+
 ## Quick start
 
-Requires Node ≥ 20.
+Requires Node 22.12+ or 24+ (the versions supported by Vitest and ESLint).
 
 ```bash
 npm install
@@ -113,12 +116,37 @@ input → validation → Hampel filter → grid search (rolling-origin backtest)
 
 ## Implementation
 
-| Block       | Details                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Hampel      | Window of 7 weeks (±3), outlier if \|x − median\| > 3σ with σ = 1.4826 · MAD; replaced by the window median. Windows always use the original series (non-recursive). The last 2 points are protected — a drop at the very end may be a real change. Skipped when MAD = 0.                                                                                                                                          |
-| Holt        | Level ℓ<sub>t</sub> = α·y<sub>t</sub> + (1 − α)(ℓ<sub>t−1</sub> + φ·b<sub>t−1</sub>); trend b<sub>t</sub> = β(ℓ<sub>t</sub> − ℓ<sub>t−1</sub>) + (1 − β)·φ·b<sub>t−1</sub>; forecast ŷ<sub>t+h</sub> = ℓ<sub>t</sub> + (φ + φ² + … + φ<sup>h</sup>)·b<sub>t</sub>. Initialized with ℓ = y₀, b = y₁ − y₀. For φ < 1 the forecast flattens towards a ceiling of ℓ + b·φ/(1 − φ); φ = 1 is an undamped straight line. |
-| Backtest    | Rolling origin: up to 12 folds, step 4 weeks, horizon 10, at least 52 weeks of training. Each fold runs the full pipeline (Hampel + Holt) on its training data only — no leakage. Anomalous weeks are excluded from scoring only. Metrics are pooled over all test points.                                                                                                                                         |
-| Grid search | α 0.05–0.95, β 0.05–0.50, φ 0.80–1.00 → 2,090 combinations; lowest WAPE wins, ties keep the first one, so the result is deterministic.                                                                                                                                                                                                                                                                             |
+### Hampel filter
+
+- Window of 7 weeks (±3); outlier if |x − median| > 3σ, where σ = 1.4826 · MAD.
+- Outliers are replaced by the window median.
+- Non-recursive: windows always use the original series, not the cleaned one.
+- The last 2 points are protected — a jump at the very end may be a real change.
+- Skipped when MAD = 0 (dispersion can't be estimated).
+
+### Damped Holt
+
+```
+level:    ℓ_t = α·y_t + (1 − α)·(ℓ_{t−1} + φ·b_{t−1})
+trend:    b_t = β·(ℓ_t − ℓ_{t−1}) + (1 − β)·φ·b_{t−1}
+forecast: ŷ_{t+h} = ℓ_t + (φ + φ² + … + φ^h)·b_t
+```
+
+- Initialized with ℓ = y₀, b = y₁ − y₀.
+- For φ < 1 the forecast flattens towards a ceiling of ℓ + b·φ/(1 − φ); φ = 1 is an undamped straight
+  line.
+
+### Backtest
+
+- Rolling origin: up to 12 folds, step 4 weeks, horizon 10, at least 52 weeks of training.
+- Each fold runs the full pipeline (Hampel + Holt) on its training data only — no leakage.
+- Anomalous weeks are excluded from scoring only; the model still trains on them (cleaned).
+- Metrics are pooled over all test points, so partly excluded folds don't get extra weight.
+
+### Grid search
+
+- α 0.05–0.95, β 0.05–0.50, φ 0.80–1.00 → 2,090 combinations.
+- Lowest WAPE wins; ties keep the first one, so the result is deterministic.
 
 ## Results
 
@@ -134,25 +162,28 @@ From `npm run evaluate` on `data/weekly-sales.json` (144 weeks, 2018-09-24 … 2
 | Holt, tuned params, no cleaning |     12.86% |     12.96% |     1596 |     -628 |
 
 - **Selected parameters:** α = 0.2, β = 0.05, φ = 1. On this data the search chose no damping: growth was
-  steady over the backtest period.
-- **Ablation:** tuning improves WAPE by 1.4 pp and Hampel cleaning by 1.5 pp. Tuned Holt beats naive
-  clearly, but the 4-week moving average is only 0.8 pp behind. All methods underestimate the growing
-  series (negative bias); tuned Holt the least.
+  steady over the backtest period. β = 0.05 is the lower edge of the grid, so the true optimum may be
+  slightly lower; extending the grid is a cheap next step.
+- **Why Holt over the moving average:** the WAPE gain is modest (0.8 pp), but bias drops 3.5× (−319 vs
+  −1131). A moving average structurally lags a growing series, which for fresh goods means systematic
+  under-stocking every week.
+- **Ablation:** tuning improves WAPE by 1.4 pp and Hampel cleaning by 1.5 pp; they also cut bias by 3.3×
+  and 2× respectively.
 - **The estimate is slightly optimistic**: parameters were selected on the same folds they are scored on
   (see nested validation below).
 - **Timing:** grid search ~1.7 s; `POST /predict` with the full dataset ~1.65 s.
 
 Detected anomalies:
 
-| Week       | Original | Replaced by | Cause                      |
-| ---------- | -------: | ----------: | -------------------------- |
-| 2018-11-19 |     1313 |         861 | Spike shortly after launch |
-| 2019-04-15 |     1110 |        2456 | Easter                     |
-| 2020-04-06 |     2993 |        4830 | COVID lockdown low         |
-| 2020-11-16 |     9336 |       11777 | 17 November public holiday |
-| 2020-12-21 |     4667 |       11777 | Christmas                  |
-| 2020-12-28 |     3854 |       11722 | Christmas                  |
-| 2021-03-29 |     8835 |       12078 | Easter                     |
+| Week       | Original | Replaced by | Likely cause                 |
+| ---------- | -------: | ----------: | ---------------------------- |
+| 2018-11-19 |     1313 |         861 | Early-period spike (unknown) |
+| 2019-04-15 |     1110 |        2456 | Easter                       |
+| 2020-04-06 |     2993 |        4830 | COVID lockdown low           |
+| 2020-11-16 |     9336 |       11777 | 17 November public holiday   |
+| 2020-12-21 |     4667 |       11777 | Christmas                    |
+| 2020-12-28 |     3854 |       11722 | Christmas                    |
+| 2021-03-29 |     8835 |       12078 | Easter                       |
 
 Forecast:
 
@@ -163,6 +194,10 @@ Forecast:
 | 2021-07-12 |   15,700 | 2021-08-16 |   16,383 |
 | 2021-07-19 |   15,837 | 2021-08-23 |   16,520 |
 | 2021-07-26 |   15,973 | 2021-08-30 |   16,656 |
+
+The forecast starts below the last observed week (17,109): with α = 0.2 the level is heavily smoothed and
+treats the last jump as partly noise. This is what the backtest favoured; the remaining negative bias is
+discussed under quantile forecasts.
 
 ## Design decisions & trade-offs
 
@@ -179,7 +214,8 @@ Forecast:
   by the low early weeks (43 units in September 2018) and undefined for zero sales (Christmas 2018).
 - **Custom CSV parser** — the format is trivial; quoted fields (e.g. `"1,000"`) are not supported. A full
   RFC 4180 parser is a job for a library.
-- **COVID needs no special handling** — the earliest backtest window starts in June 2020, after the drop.
+- **COVID needs no special handling** — the earliest backtest window starts in June 2020, after the drop;
+  in training, Holt's exponential forgetting makes the 2020 dip negligible by mid-2021.
 
 ## Limitations & future work
 
@@ -188,7 +224,8 @@ Forecast:
   Impact is negligible (far from the end of the series, outside every backtest window); a calendar rule
   for 24 December – 1 January would fix it.
 - **Seasonality** — Holt-Winters once several clean years are available.
-- **Quantile forecasts / intervals** — stockouts and overstock have asymmetric costs.
+- **Quantile forecasts / intervals** — stockouts and overstock have asymmetric costs, and the point
+  forecast still underestimates on average (bias −319).
 - **Per-product and per-location forecasts.**
 - **Nested validation** — select parameters on inner folds, score on outer ones, for an unbiased estimate.
 - **Worker threads or a queue** for the CPU-bound `POST`.
