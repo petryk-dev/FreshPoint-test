@@ -1,4 +1,4 @@
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+export const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Returns `count` dates following `lastTimestamp`, 7 days apart, as ISO strings.
