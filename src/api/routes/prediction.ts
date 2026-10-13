@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { predict } from '../forecast/pipeline.js';
-import type { PredictionStore } from '../store/predictionStore.js';
-import { parseSalesCsv } from './csv.js';
-import { HttpError } from './errors.js';
-import { validateSalesInput } from './validation.js';
+import { predict } from '../../forecast/pipeline.js';
+import type { PredictionStore } from '../../store/predictionStore.js';
+import { parseSalesCsv } from '../csv.js';
+import { HttpError } from '../errors.js';
+import { validateSalesInput } from '../validation.js';
 
 export const createPredictionRouter = (store: PredictionStore): Router => {
   const router = Router();

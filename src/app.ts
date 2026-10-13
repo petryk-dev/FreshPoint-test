@@ -1,7 +1,7 @@
 import express from 'express';
 import { errorHandler, notFoundHandler } from './api/errorHandler.js';
-import { createPredictionRouter } from './api/routes.js';
-import { healthRouter } from './routes/health.js';
+import { createPredictionRouter } from './api/routes/prediction.js';
+import { healthRouter } from './api/routes/health.js';
 import type { PredictionStore } from './store/predictionStore.js';
 
 export interface AppDependencies {

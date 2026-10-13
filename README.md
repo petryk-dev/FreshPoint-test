@@ -235,14 +235,42 @@ discussed under quantile forecasts.
 
 ```
 src/
-  server.ts          entry point: file store, HTTP server, graceful shutdown
-  app.ts             createApp({ store }): body parsers, routes, error handling
-  config.ts          environment variables (PORT, PREDICTION_FILE)
-  api/               routes, validation, CSV parser, error classes and handler
-  forecast/          pipeline, Hampel, Holt, backtest, grid search, metrics, baselines, dates, config
-  store/             PredictionStore interface, in-memory and file implementations
-  routes/health.ts   GET /health
-scripts/evaluate.ts  evaluation report (npm run evaluate)
-tests/               Vitest + Supertest tests
-data/                sample data (JSON and CSV)
+├── server.ts                   entry point: file store, HTTP server, graceful shutdown
+├── app.ts                      createApp({ store }): body parsers, routes, error handling
+├── config.ts                   environment variables (PORT, PREDICTION_FILE)
+├── api/
+│   ├── routes/
+│   │   ├── health.ts           GET /health
+│   │   └── prediction.ts       POST /predict, GET /prediction
+│   ├── validation.ts           Zod schema + series checks (sorting, duplicates, 7-day gaps)
+│   ├── csv.ts                  CSV parser (structure only)
+│   ├── errors.ts               HttpError, ValidationError
+│   └── errorHandler.ts         404 handler and JSON error responses
+├── forecast/
+│   ├── pipeline.ts             predict(): Hampel → grid search → Holt → forecast
+│   ├── config.ts               horizon, Hampel, backtest and grid settings in one place
+│   ├── hampel.ts               Hampel outlier filter
+│   ├── holt.ts                 damped Holt: step, fit, forecast
+│   ├── backtest.ts             rolling-origin backtest, withCleaning
+│   ├── gridSearch.ts           parameter grid and search by WAPE
+│   ├── metrics.ts              MAE, MAPE, WAPE, bias
+│   ├── baselines.ts            naive, moving average, drift
+│   ├── stats.ts                median, MAD, mean
+│   ├── dates.ts                next weekly timestamps in UTC
+│   └── types.ts                Forecaster type
+└── store/
+    ├── predictionStore.ts      PredictionStore interface
+    ├── filePredictionStore.ts  JSON file with atomic writes
+    └── inMemoryPredictionStore.ts  in-memory store for tests
+scripts/
+└── evaluate.ts                 evaluation report (npm run evaluate)
+tests/
+├── api.test.ts                 end-to-end API tests (Supertest)
+├── api/                        validation, CSV, error handler
+├── forecast/                   one test file per forecast module
+├── store/                      shared contract tests for both stores
+└── helpers.ts                  test data helpers
+data/
+├── weekly-sales.json           sample data (JSON)
+└── predict.csv                 the same data as CSV
 ```
