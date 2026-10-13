@@ -5,6 +5,11 @@ export interface CsvSalesRow {
   value: number;
 }
 
+const MAX_ECHO_LENGTH = 100;
+
+const truncate = (text: string) =>
+  text.length > MAX_ECHO_LENGTH ? `${text.slice(0, MAX_ECHO_LENGTH)}…` : text;
+
 const fail = (path: string, message: string): never => {
   throw new ValidationError(message, [{ path, message }]);
 };
@@ -30,7 +35,10 @@ export const parseSalesCsv = (text: string): CsvSalesRow[] => {
   const timestampCol = columns.indexOf('timestamp');
   const valueCol = columns.indexOf('value');
   if (timestampCol === -1 || valueCol === -1) {
-    fail('header', `CSV header must contain timestamp and value columns, got "${header.content}"`);
+    fail(
+      'header',
+      `CSV header must contain timestamp and value columns, got "${truncate(header.content)}"`,
+    );
   }
 
   return rows.map(({ content, lineNo }) => {
@@ -46,7 +54,7 @@ export const parseSalesCsv = (text: string): CsvSalesRow[] => {
     const value = Number(rawValue);
     // Number('') is 0, so empty cells must be rejected explicitly.
     if (rawValue === '' || !Number.isFinite(value)) {
-      fail(`line ${lineNo}`, `Line ${lineNo}: value must be a number, got "${rawValue}"`);
+      fail(`line ${lineNo}`, `Line ${lineNo}: value must be a number, got "${truncate(rawValue)}"`);
     }
 
     return { timestamp: cells[timestampCol]!.trim(), value };

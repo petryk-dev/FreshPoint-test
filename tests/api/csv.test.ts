@@ -57,6 +57,12 @@ describe('parseSalesCsv', () => {
     },
   );
 
+  it('truncates long input echoed in error messages', () => {
+    const text = `timestamp,value${'2021-01-04T00:00:00.000Z,100'.repeat(1000)}`;
+
+    expect(csvError(text).message.length).toBeLessThan(200);
+  });
+
   it('rejects a row with the wrong number of columns and names the line', () => {
     const text = 'timestamp,value\n2021-01-04T00:00:00.000Z,100\n2021-01-11T00:00:00.000Z,200,x';
 
